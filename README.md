@@ -223,7 +223,7 @@ Every generated instance is fully reproducible from its config alone. Seeds are 
 This codebase accompanies the MSc thesis proposal:
 
 > *Adaptive Break-Type-Aware Ensemble Learning for Structural Break Detection in Financial Time Series*
-> Khalifa University, MSc Computational Data Science, 2025.
+> Khalifa University, MSc Computational Data Science, 2026.
 
 Key references for the methodology:
 - Li et al. (2024, JRSSB) — closest competitor framework
