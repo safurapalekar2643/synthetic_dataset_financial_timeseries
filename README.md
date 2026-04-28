@@ -19,7 +19,7 @@ This repo covers **the data generation layer only** — the two corpora that sup
 
 ## Repository Structure
 
-​```
+```
 synthetic_dataset_financial_timeseries/
 │
 ├── README.md
@@ -41,11 +41,41 @@ synthetic_dataset_financial_timeseries/
         ├── __init__.py
         ├── smoke_test_validator.py         # GARCH-aware (two-pass: off + on)
         └── smoke_test_validator_nogarch.py # GARCH background disabled
-​```
+```
+
+---
+
+## How to Run
+
+**Step 1 — Clone and install**
+
+```bash
+git clone https://github.com/safurapalekar2643/synthetic_dataset_financial_timeseries.git
+cd synthetic_dataset_financial_timeseries
+pip install -r requirements.txt
+```
+
+**Step 2 — Validate the generators (run this first)**
+
+```python
+from data_generation.validators.smoke_test_validator import validate_smoke_test
+
+validate_smoke_test(interactive=True)
+```
+
+Expected output: PASS for all six break types across both GARCH passes (GARCH=False, GARCH=True). If any hard failure is raised, corpus generation should not proceed until the issue is resolved.
+
+**Step 3 — Generate a small validation corpus**
+
+Use the Quick Start blocks in the sections below. Always set `log_to_mlflow=False` unless you have an MLflow tracking server configured.
+
+---
 
 ## Corpora
 
 ### Single-Break Corpus — `generate_corpus.py`
+
+Located in `data_generation/pure_breaks/`.
 
 Generates windows each containing **exactly one injected structural break**. Break type is one of five active types; break location is sampled uniformly over admissible positions subject to a minimum segment constraint.
 
@@ -74,6 +104,8 @@ Generates windows each containing **exactly one injected structural break**. Bre
 ---
 
 ### Multi-Break Corpus — `stage1_corpus.py`
+
+Located in `data_generation/mixed_breaks/`.
 
 Generates windows with **a variable number of breaks** per window, drawn from Poisson(λ=2). Break types and locations are sampled independently. Zero-break windows are retained as the no-break class.
 
@@ -107,7 +139,7 @@ Python 3.9+ recommended.
 ### Single-break corpus (small grid for validation)
 
 ```python
-from data_generation.generate_corpus import generate_corpus, BREAK_TYPES
+from data_generation.pure_breaks.generate_corpus import generate_corpus, BREAK_TYPES
 
 small_grid = {
     "T":                [500, 1000],
@@ -132,14 +164,19 @@ manifest = generate_corpus(
 )
 ```
 
-Swap in `DIVERSITY_GRID` from `generate_corpus.py` for the full corpus run.
+To run the full corpus, replace `small_grid` with `DIVERSITY_GRID` imported from `generate_corpus.py`.
 
 ---
 
 ### Multi-break corpus (small grid for validation)
 
 ```python
-from data_generation.stage1_corpus import generate_stage1_corpus, get_train, get_val, get_test
+from data_generation.mixed_breaks.stage1_corpus import (
+    generate_stage1_corpus,
+    get_train,
+    get_val,
+    get_test,
+)
 
 small_grid = {
     "T":                [500, 1000],
@@ -158,26 +195,27 @@ manifest = generate_stage1_corpus(
     verbose       = True,
 )
 
-print(f"Train : {len(get_train(manifest))}")
-print(f"Val   : {len(get_val(manifest))}")
-print(f"Test  : {len(get_test(manifest))}")
+print(f"Train          : {len(get_train(manifest))}")
+print(f"Val            : {len(get_val(manifest))}")
+print(f"Test           : {len(get_test(manifest))}")
 ```
+
+To run the full corpus, replace `small_grid` with `STAGE1_DIVERSITY_GRID` imported from `stage1_corpus.py`.
 
 ---
 
-### Smoke test (label purity validation)
-
-Run this before any corpus generation to verify the generators are producing the correct type of break:
+### Smoke test / label purity validation
 
 ```python
-from data_generation.smoke_test_validator import validate_smoke_test
+from data_generation.validators.smoke_test_validator import validate_smoke_test
 
 validate_smoke_test(interactive=True)
 ```
 
-The validator runs two passes (GARCH off, GARCH on) and applies **hard** and **soft** checks per break type:
-- **Hard failures** block corpus generation (e.g., wrong statistic changed — label contamination).
-- **Soft warnings** are logged and must be documented; generation proceeds.
+The validator runs two passes (GARCH=False, GARCH=True) and applies two tiers of checks per break type:
+
+- **Hard failures** — label contamination (wrong statistic changed). Raises `SystemExit(1)` and blocks corpus generation.
+- **Soft warnings** — known acceptable limitations (e.g. finite-sample noise). Logged and documented; generation proceeds.
 
 ---
 
