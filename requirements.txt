@@ -1,0 +1,13 @@
+# Core scientific stack
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+
+# Change-point detection
+ruptures>=1.1.7
+
+# Experiment tracking (optional — set log_to_mlflow=False to skip)
+mlflow>=2.10
+
+# Statistical utilities
+statsmodels>=0.14
