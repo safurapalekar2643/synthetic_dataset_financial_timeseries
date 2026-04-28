@@ -812,7 +812,7 @@ def log_instance_to_mlflow(instance: dict,
         # --- Artifacts ---
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        csv_path = os.path.join(r"C:\Users\safur\OneDrive\Desktop\KU assignments\thesis\codes", f"{instance['instance_id'][:120]}.csv")
+        csv_path = os.path.join(output_dir, f"{instance['instance_id'][:120]}.csv")
         df = pd.DataFrame({
             "t":       np.arange(len(series)),
             "returns": series,
@@ -846,7 +846,7 @@ def generate_corpus(
     grid:            dict   = DIVERSITY_GRID,
     n_replicates:    int    = 3,
     experiment_name: str    = "synthetic_breaks",
-    output_dir:      str    = r"C:\Users\safur\OneDrive\Desktop\KU assignments\thesis\codes",
+    output_dir:      str    = "./data/synthetic",
     log_to_mlflow:   bool   = True,
     verbose:         bool   = True,
 ) -> pd.DataFrame:
