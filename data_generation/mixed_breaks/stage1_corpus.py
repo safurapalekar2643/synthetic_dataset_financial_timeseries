@@ -124,7 +124,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from generate_corpus import (
+from data_generation.pure_breaks.generate_corpus import (
     BreakConfig,
     BREAK_TYPES,
     generate_instance,
