@@ -56,7 +56,7 @@ from dataclasses import dataclass, asdict, field
 from typing import Literal, Optional
 from scipy import stats
 from scipy.signal import periodogram
-from smoke_test_validator import validate_smoke_test
+from data_generation.validators.smoke_test_validator import validate_smoke_test
 
 
 # =============================================================================
