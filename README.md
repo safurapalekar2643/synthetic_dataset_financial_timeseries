@@ -19,23 +19,29 @@ This repo covers **the data generation layer only** — the two corpora that sup
 
 ## Repository Structure
 
-```
-structural-break-detection/
+​```
+synthetic_dataset_financial_timeseries/
 │
 ├── README.md
 ├── requirements.txt
+├── .gitignore
 │
-├── data_generation/
-│   ├── generate_corpus.py            # Single-break corpus (Stage 2 benchmarking + affinity matrix calibration)
-│   ├── stage1_corpus.py              # Multi-break corpus (Stage 1 training and evaluation)
-│   ├── smoke_test_validator.py       # Automated label-purity validator (GARCH-aware)
-│   └── smoke_test_validator_nogarch.py  # Validator variant — GARCH background disabled
-│
-└── data/                             # Populated at runtime — not tracked by git
-    └── .gitkeep
-```
-
----
+└── data_generation/
+    ├── __init__.py
+    │
+    ├── pure_breaks/                        # Single-break corpus (Stage 2 benchmarking)
+    │   ├── __init__.py
+    │   └── generate_corpus.py
+    │
+    ├── mixed_breaks/                       # Multi-break corpus (Stage 1 training)
+    │   ├── __init__.py
+    │   └── stage1_corpus.py
+    │
+    └── validators/                         # Automated label-purity validation
+        ├── __init__.py
+        ├── smoke_test_validator.py         # GARCH-aware (two-pass: off + on)
+        └── smoke_test_validator_nogarch.py # GARCH background disabled
+​```
 
 ## Corpora
 
