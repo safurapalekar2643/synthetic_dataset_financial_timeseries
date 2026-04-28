@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Thesis — generated data and experiment tracking
+data/synthetic/
+data/stage1/
+mlruns/
