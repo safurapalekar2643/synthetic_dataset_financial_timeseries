@@ -1,19 +1,42 @@
-# Adaptive Break-Type-Aware Ensemble Learning for Structural Break Detection in Financial Time Series
+# Adaptive Structural Break Detection in Financial Time Series
 
-**MSc Computational Data Science — Thesis Repository (Proposal Stage)**
-Khalifa University · Data Generation Modules
+**MSc Thesis · Khalifa University · Computational Data Science · 2026**  
+Supervisors: Dr. Jorge P. Zubelli (main) · Dr. Ibrahim Elfadel (co-adviser)  
+External committee member: Dr. Emanuele Olivetti (ADIA)
 
 ---
 
 ## Overview
 
-This repository contains the synthetic data generation pipeline for a two-stage framework that detects structural breaks in financial time series. The core idea is that different structural breaks — mean shifts, volatility changes, distributional changes, etc. — require different statistical detectors. Rather than applying all detectors equally, the framework first *classifies* what type of break is likely present, then routes detection effort accordingly.
+Financial time series exhibit distinct types of structural breaks — volatility regime shifts, mean shifts, changes in autocorrelation structure, tail-shape changes — each of which requires a different detection strategy. Applying a single detector regardless of break type produces either missed breaks or excess false alarms. This project develops a **two-stage adaptive ensemble** that accounts for break-type heterogeneity.
 
-**Stage 1** learns to infer the dominant break type from time-series meta-features, producing a soft probability vector p̂ over break types.
+**Stage 1 — Break-Type Classifier**  
+Extracts a compact set of statistical meta-features from a window of returns (volatility dynamics, autocorrelation structure, distributional shape, within-window stability) and outputs a soft probability vector p̂ over six classes: mean shift, volatility shift, dependence shift, distributional shift, trend shift, and no-break.
 
-**Stage 2** converts p̂ into per-detector weights via an affinity matrix (w = Aᵀp̂), then adjusts each detector's penalty schedule so that well-matched detectors become more aggressive and poorly-matched detectors are effectively gated off.
+**Stage 2 — Adaptive Detector Ensemble**  
+Translates the Stage 1 posterior into per-detector weights via:
 
-This repo covers **the data generation layer only** — the two corpora that support training and benchmarking of both stages. The full detection pipeline is in active development and is not yet included.
+```
+w = Aᵀ p̂
+```
+
+where **A** is an empirically calibrated affinity matrix. Detectors matched to the inferred break type are activated; mismatched detectors are suppressed, reducing false alarms without sacrificing detection power.
+
+This repository contains the **synthetic data generation pipeline** that supports training and benchmarking of both stages. The full detection pipeline is in active development.
+
+---
+
+## Key Results (Proposal Stage — 300 Synthetic Windows)
+
+| Break Type | Specialist Detection Rate | Mismatch Detection Rate | Localisation Error Ratio |
+|---|---|---|---|
+| Mean shift | 1.00 | ~0.00 | 1× (baseline) |
+| Volatility shift | 0.93 | ~0.00 | — |
+| Dependence shift | 0.68 | ~0.00 | 2–7× higher for mismatched |
+| Distributional shift | 0.81 | ~0.00 | — |
+| Trend shift | 0.74 | ~0.00 | — |
+
+Clear diagonal dominance in the affinity matrix confirms that exploitable specialisation exists and that the adaptive weighting scheme is well-motivated.
 
 ---
 
@@ -40,188 +63,14 @@ synthetic_dataset_financial_timeseries/
     └── validators/                         # Automated label-purity validation
         ├── __init__.py
         ├── smoke_test_validator.py         # GARCH-aware (two-pass: off + on)
-        └── smoke_test_validator_nogarch.py # GARCH background disabled
+        └── smoke_test_validator_nogarch.py
 ```
 
 ---
 
-## How to Run
+## Structural Break Taxonomy
 
-**Step 1 — Clone and install**
-
-```bash
-git clone https://github.com/safurapalekar2643/synthetic_dataset_financial_timeseries.git
-cd synthetic_dataset_financial_timeseries
-pip install -r requirements.txt
-```
-
-**Step 2 — Validate the generators (run this first)**
-
-```python
-from data_generation.validators.smoke_test_validator import validate_smoke_test
-
-validate_smoke_test(interactive=True)
-```
-
-Expected output: PASS for all six break types across both GARCH passes (GARCH=False, GARCH=True). If any hard failure is raised, corpus generation should not proceed until the issue is resolved.
-
-**Step 3 — Generate a small validation corpus**
-
-Use the Quick Start blocks in the sections below. Always set `log_to_mlflow=False` unless you have an MLflow tracking server configured.
-
----
-
-## Corpora
-
-### Single-Break Corpus — `generate_corpus.py`
-
-Located in `data_generation/pure_breaks/`.
-
-Generates windows each containing **exactly one injected structural break**. Break type is one of five active types; break location is sampled uniformly over admissible positions subject to a minimum segment constraint.
-
-**Purpose:** calibrating the affinity matrix (how well each detector detects each break type) and benchmarking per-detector specialisation in Chapter 4 of the proposal.
-
-**Output per instance:**
-- Time series of returns (`t`, `returns`, `regime` columns in CSV)
-- Break type and true location as hard labels
-- Effect size (normalised, break-type-specific)
-- JSON config for full reproducibility
-
-**Diversity grid** (Cartesian product swept):
-
-| Knob | Values |
-|---|---|
-| Window length T | 500, 1000, 2000 |
-| Break location τ_frac | 0.25, 0.50, 0.75 |
-| Location jitter | 0.0, ±5% |
-| Magnitude | small, medium, large |
-| Baseline σ | 0.005, 0.01, 0.02 |
-| Innovation distribution | Gaussian, Student-t |
-| AR(1) background φ | 0.0, 0.3 |
-| GARCH(1,1) background | off, on |
-| Transition sharpness | abrupt, smooth |
-
----
-
-### Multi-Break Corpus — `stage1_corpus.py`
-
-Located in `data_generation/mixed_breaks/`.
-
-Generates windows with **a variable number of breaks** per window, drawn from Poisson(λ=2). Break types and locations are sampled independently. Zero-break windows are retained as the no-break class.
-
-**Purpose:** training and evaluating the Stage 1 break-type classifier.
-
-**Labelling:** each window carries a **soft probability vector** over six classes (five break types + no-break), with entries proportional to the empirical frequencies of break types in that window. This allows Stage 1 to learn a distribution over break types rather than a hard single-class label, and connects the classifier output directly to Stage 2 weighting without a conversion step.
-
-**Data splits** (deterministic, stratified by dominant break type and break-count bucket):
-
-| Split | Fraction | Purpose |
-|---|---|---|
-| train | 60% | Stage 1 classifier training |
-| val | 10% | Hyperparameter selection |
-| test | 10% | Final held-out evaluation |
-| robustness_val | 20% | Stress-test on complex multi-break windows |
-
----
-
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
-
-Python 3.9+ recommended.
-
----
-
-## Quick Start
-
-### Single-break corpus (small grid for validation)
-
-```python
-from data_generation.pure_breaks.generate_corpus import generate_corpus, BREAK_TYPES
-
-small_grid = {
-    "T":                [500, 1000],
-    "tau_frac":         [0.25, 0.5, 0.75],
-    "tau_jitter":       [0.0, 0.05],
-    "magnitude":        ["small", "medium", "large"],
-    "baseline_sigma":   [0.01],
-    "sigma_jitter":     [0.0],
-    "innovation":       ["gaussian", "student_t"],
-    "ar_background":    [0.0, 0.3],
-    "garch_background": [False, True],
-    "smooth_transition":[False, True],
-}
-
-manifest = generate_corpus(
-    break_types    = BREAK_TYPES,
-    grid           = small_grid,
-    n_replicates   = 2,
-    output_dir     = "./data/synthetic",
-    log_to_mlflow  = False,
-    verbose        = True,
-)
-```
-
-To run the full corpus, replace `small_grid` with `DIVERSITY_GRID` imported from `generate_corpus.py`.
-
----
-
-### Multi-break corpus (small grid for validation)
-
-```python
-from data_generation.mixed_breaks.stage1_corpus import (
-    generate_stage1_corpus,
-    get_train,
-    get_val,
-    get_test,
-)
-
-small_grid = {
-    "T":                [500, 1000],
-    "baseline_sigma":   [0.01],
-    "innovation":       ["gaussian", "student_t"],
-    "ar_background":    [0.0, 0.3],
-    "garch_background": [False],
-    "smooth_transition":[False],
-    "magnitude":        ["medium", "random"],
-}
-
-manifest = generate_stage1_corpus(
-    grid          = small_grid,
-    n_replicates  = 5,
-    output_dir    = "./data/stage1",
-    verbose       = True,
-)
-
-print(f"Train          : {len(get_train(manifest))}")
-print(f"Val            : {len(get_val(manifest))}")
-print(f"Test           : {len(get_test(manifest))}")
-```
-
-To run the full corpus, replace `small_grid` with `STAGE1_DIVERSITY_GRID` imported from `stage1_corpus.py`.
-
----
-
-### Smoke test / label purity validation
-
-```python
-from data_generation.validators.smoke_test_validator import validate_smoke_test
-
-validate_smoke_test(interactive=True)
-```
-
-The validator runs two passes (GARCH=False, GARCH=True) and applies two tiers of checks per break type:
-
-- **Hard failures** — label contamination (wrong statistic changed). Raises `SystemExit(1)` and blocks corpus generation.
-- **Soft warnings** — known acceptable limitations (e.g. finite-sample noise). Logged and documented; generation proceeds.
-
----
-
-## Structural Break Types
-
-| Type | What changes at τ | Primary detector family |
+| Type | What changes at τ | Primary detector |
 |---|---|---|
 | `mean_shift` | Level / intercept | PELT with L2 cost on returns |
 | `volatility_shift` | Unconditional variance | PELT with L2 cost on squared returns |
@@ -230,43 +79,102 @@ The validator runs two passes (GARCH=False, GARCH=True) and applies two tiers of
 | `trend_shift` | Linear slope | Dynp with clinear cost |
 | `no_break` | Nothing | — (false alarm rate calibration) |
 
-> **Note:** The detector suite listed above is **preliminary** — five placeholder detectors chosen to demonstrate the break-type specialisation pattern at proposal stage. Final detector selection will follow a literature-driven search in the first month of the thesis and may differ substantially.
+---
+
+## Installation
+
+```bash
+git clone https://github.com/safurapalekar2643/synthetic_dataset_financial_timeseries.git
+cd synthetic_dataset_financial_timeseries
+pip install -r requirements.txt   # Python 3.9+
+```
 
 ---
 
-## Known Limitations (Proposal Stage)
+## Quick Start
 
-**FAR = 1.00 for Dynp detectors.** The `Dynp` algorithm requires a fixed `n_bkps` argument, which forces it to return exactly one breakpoint regardless of whether a true break is present. This means false alarm rate (FAR) is 1.0 for `dependence_shift` and `trend_shift` detectors on no-break windows. A post-hoc cost-ratio threshold stage is the planned resolution in the main thesis phase.
+**Step 1 — Validate generators (run this first)**
 
-**Synthetic-only evaluation.** All evaluation at proposal stage uses Tier A synthetic data with exact ground-truth labels. Tier B semi-synthetic evaluation (controlled breaks injected into real return windows) is planned for the main thesis phase.
+```python
+from data_generation.validators.smoke_test_validator import validate_smoke_test
+validate_smoke_test(interactive=True)
+```
 
-**Detector suite is preliminary.** See the note above. The five current detectors are illustrative examples for the proposal-stage benchmark only.
+Expected: PASS for all six break types across both GARCH passes. Hard failures block corpus generation.
+
+**Step 2 — Generate single-break corpus**
+
+```python
+from data_generation.pure_breaks.generate_corpus import generate_corpus, BREAK_TYPES
+
+manifest = generate_corpus(
+    break_types    = BREAK_TYPES,
+    grid           = small_grid,     # or DIVERSITY_GRID for full corpus
+    n_replicates   = 2,
+    output_dir     = "./data/synthetic",
+    log_to_mlflow  = False,
+    verbose        = True,
+)
+```
+
+**Step 3 — Generate multi-break corpus (Stage 1 training)**
+
+```python
+from data_generation.mixed_breaks.stage1_corpus import generate_stage1_corpus
+
+manifest = generate_stage1_corpus(
+    grid          = small_grid,      # or STAGE1_DIVERSITY_GRID for full corpus
+    n_replicates  = 5,
+    output_dir    = "./data/stage1",
+    verbose       = True,
+)
+```
+
+---
+
+## Corpora
+
+### Single-Break Corpus
+
+Generates windows each containing exactly one injected structural break. Used to calibrate the affinity matrix **A** by measuring each detector's performance on each break type.
+
+Diversity grid sweeps: window length T ∈ {500, 1000, 2000}, break location τ_frac ∈ {0.25, 0.50, 0.75}, magnitude ∈ {small, medium, large}, innovation ∈ {Gaussian, Student-t}, AR(1) background φ ∈ {0.0, 0.3}, GARCH(1,1) ∈ {off, on}, transition ∈ {abrupt, smooth}.
+
+### Multi-Break Corpus
+
+Generates windows with a variable number of breaks per window (Poisson(λ=2)). Each window carries a **soft label vector** — empirical frequencies of break types within that window — connecting Stage 1 output directly to Stage 2 weighting without a conversion step.
+
+Data splits: 60% train / 10% val / 10% test / 20% robustness val (deterministic hash-based, stable across Python versions).
 
 ---
 
 ## Reproducibility
 
-Every generated instance is fully reproducible from its config alone. Seeds are derived deterministically from the combination of break type, grid knobs, and replicate index — no global random state is modified. Data splits use a hash-based deterministic assignment, not a random shuffle, so splits are stable across Python versions.
+Seeds are derived deterministically from break type, grid knobs, and replicate index — no global random state is modified. All configs are saved as JSON alongside generated data.
 
 ---
 
-## MLflow Tracking (Optional)
+## Theoretical Framework
 
-`generate_corpus.py` supports optional per-instance MLflow logging. Set `log_to_mlflow=True` in `generate_corpus()` and point `MLFLOW_TRACKING_URI` to your tracking server. When disabled (`log_to_mlflow=False`), corpus generation runs without any MLflow dependency.
+This work draws on:
+- **Mixture of Experts (MoE)** — gating network analogy for Stage 1
+- **Dynamic Ensemble Selection (DES)** — per-instance detector weighting at inference time
+- **Affinity matrix calibration** — empirical measurement of detector-break-type specialisation
+
+Key references: Li et al. (2024, JRSSB) · Katser et al. (2021) · Martins et al. (2025) · Adams & MacKay (2007)
 
 ---
 
-## Citation / Reference
+## Applications
 
-This codebase accompanies the MSc thesis proposal:
+The framework targets:
+- **VaR recalibration** — updating risk models when volatility regime changes
+- **Volatility targeting** — detecting shifts in realised volatility regime
+- **Portfolio construction** — regime-aware rebalancing triggered by structural changes
+- **Strategy backtesting** — isolating in-regime vs. cross-regime performance
 
-> *Adaptive Break-Type-Aware Ensemble Learning for Structural Break Detection in Financial Time Series*
-> Khalifa University, MSc Computational Data Science, 2026.
+---
 
-Key references for the methodology:
-- Li et al. (2024, JRSSB) — closest competitor framework
-- Katser et al. (2021) — canonical CPD ensemble baseline
-- Martins et al. (2025) — meta-learning for change-point detection
-- Romano et al. (2021) — DeCAFS detector
-- Londschien et al. (2023) — changeforest detector
-- Inclán & Tiao (1994) — ICSS variance break detector
+## Status
+
+This repository is at **proposal stage**. The detector suite is preliminary; final selection follows a literature-driven search in the main thesis phase. The Dynp FAR=1.00 limitation (forced `n_bkps`) is a known constraint; a post-hoc cost-ratio threshold stage is the planned resolution.
